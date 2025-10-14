@@ -1,5 +1,3 @@
-using System.Collections;
-using System.Collections.Generic;
 using UnityEngine;
 
 public class Bola : MonoBehaviour
@@ -7,14 +5,10 @@ public class Bola : MonoBehaviour
 
     public float velocidadeDaBola;
 
-    public float direcaoAleatoriaX;
-
-    public float direcaoAleatoriaY;
-
-
-    public Rigidbody2D oRigidyBody2D;
+    public Rigidbody2D oRigidbody2D;
     
-    public AudioSource somDaBola;
+    // usado no cliente: posiciona a bola visualmente conforme o servidor
+    
     // Start is called once before the first execution of Update after the MonoBehaviour is created
     void Start()
     {
@@ -27,12 +21,10 @@ public class Bola : MonoBehaviour
         
     }
 
-    private void MoverBola(){
-        oRigidyBody2D.linearVelocity = new Vector2(velocidadeDaBola, velocidadeDaBola);
-    }
+    private void MoverBola()
+    {
+       
 
-    void OnCollisionEnter2D(Collision2D collisionInfo){
-        somDaBola.Play();
-        oRigidyBody2D.linearVelocity += new Vector2(direcaoAleatoriaX, direcaoAleatoriaY);
+        oRigidbody2D.linearVelocity = new Vector2(velocidadeDaBola, velocidadeDaBola);
     }
 }
