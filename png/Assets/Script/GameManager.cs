@@ -25,6 +25,11 @@ public class GameManager : MonoBehaviour
         if(Input.GetKeyDown(KeyCode.R)){
             ReiniciarPartida();
         }
+
+        if (Input.GetKeyDown(KeyCode.Escape))
+        {
+            SairDoJogo();
+        }
     }
 
     public void AumentarPontuacaoDoJogador1(){
@@ -49,5 +54,6 @@ public class GameManager : MonoBehaviour
     
     private void SairDoJogo(){
         Application.Quit();
+        Debug.Log("Saiu do jogo");
     }
 }
