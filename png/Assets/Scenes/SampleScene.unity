@@ -1495,10 +1495,10 @@ MonoBehaviour:
   remoteIp: 127.0.0.1
   port: 7777
   sendInterval: 0.03
-  paddleHost: {fileID: 0}
-  paddleClient: {fileID: 0}
-  ball: {fileID: 0}
-  gameManager: {fileID: 0}
+  paddleHost: {fileID: 872554309}
+  paddleClient: {fileID: 2133078022}
+  ball: {fileID: 905454896}
+  gameManager: {fileID: 1219550247}
   velocidadeBola: 6
 --- !u!4 &1585297388
 Transform:
