@@ -12,15 +12,15 @@ public class NetworkManagerPong : MonoBehaviour
     public Mode mode = Mode.Host;
 
     [Header("Rede")]
-    public string remoteIp = "127.0.0.1"; // para o cliente, o IP do Host
+    public string remoteIp = "127.0.0.1";
     public int port = 7777;
     public float sendInterval = 0.03f;
 
     [Header("Referências")]
-    public Transform paddleHost;       // paddle do host
-    public Transform paddleClient;     // paddle do cliente
-    public Transform ball;             // bola
-    public GameManager gameManager;    // gerencia pontuação
+    public Transform paddleHost;
+    public Transform paddleClient;
+    public Transform ball;
+    public GameManager gameManager;
 
     [Header("Configuração bola")]
     public float velocidadeBola = 6f;
@@ -31,15 +31,11 @@ public class NetworkManagerPong : MonoBehaviour
     private IPEndPoint lastClient;
 
     private float lastSend = 0f;
-
     private Vector2 ballPos;
     private Vector2 ballVel;
 
     [Serializable]
-    public struct InputMsg
-    {
-        public float paddleY;
-    }
+    public struct InputMsg { public float paddleY; }
 
     [Serializable]
     public struct StateMsg
@@ -54,14 +50,23 @@ public class NetworkManagerPong : MonoBehaviour
 
     void Start()
     {
+        // Garante que temos uma referência válida para GameManager
+        if (gameManager == null)
+        {
+            gameManager = FindObjectOfType<GameManager>();
+            if (gameManager == null)
+            {
+                Debug.LogWarning("NetworkManagerPong: GameManager não encontrado na cena. Chamadas relacionadas à pontuação serão ignoradas até corrigir.");
+            }
+        }
+
         if (mode == Mode.Host)
         {
             udp = new UdpClient(port);
             remoteEP = new IPEndPoint(IPAddress.Any, 0);
             Task.Run(() => ReceiveLoop());
 
-            // Inicializa bola
-            ballPos = ball.position;
+            ballPos = ball != null ? (Vector2)ball.position : Vector2.zero;
             ballVel = new Vector2(velocidadeBola, UnityEngine.Random.Range(-velocidadeBola, velocidadeBola));
         }
         else
@@ -92,7 +97,6 @@ public class NetworkManagerPong : MonoBehaviour
 
     void Update()
     {
-        // === PROCESSA MENSAGENS RECEBIDAS ===
         while (recvQueue.TryDequeue(out var entry))
         {
             string msg = entry.Item1;
@@ -100,85 +104,102 @@ public class NetworkManagerPong : MonoBehaviour
 
             if (mode == Mode.Host)
             {
-                // Host recebe input do cliente
                 var input = JsonUtility.FromJson<InputMsg>(msg);
-                Vector3 p = paddleClient.position;
-                p.y = input.paddleY;
-                paddleClient.position = p;
+                if (paddleClient != null)
+                {
+                    Vector3 p = paddleClient.position;
+                    p.y = input.paddleY;
+                    paddleClient.position = p;
+                }
                 lastClient = sender;
             }
             else
             {
-                // Cliente recebe estado do Host
                 var state = JsonUtility.FromJson<StateMsg>(msg);
 
-                // Atualiza paddles
-                Vector3 hostP = paddleHost.position;
-                hostP.y = state.hostPaddleY;
-                paddleHost.position = Vector3.Lerp(paddleHost.position, hostP, 0.7f);
+                if (paddleHost != null)
+                {
+                    Vector3 hostP = paddleHost.position;
+                    hostP.y = state.hostPaddleY;
+                    paddleHost.position = Vector3.Lerp(paddleHost.position, hostP, 0.7f);
+                }
 
-                Vector3 myP = paddleClient.position;
-                myP.y = state.clientPaddleY;
-                paddleClient.position = Vector3.Lerp(paddleClient.position, myP, 0.7f);
+                if (paddleClient != null)
+                {
+                    Vector3 myP = paddleClient.position;
+                    myP.y = state.clientPaddleY;
+                    paddleClient.position = Vector3.Lerp(paddleClient.position, myP, 0.7f);
+                }
 
-                // Atualiza bola
-                ball.position = Vector3.Lerp(ball.position, new Vector3(state.ballX, state.ballY, 0), 0.8f);
+                if (ball != null)
+                {
+                    ball.position = Vector3.Lerp(ball.position, new Vector3(state.ballX, state.ballY, 0), 0.8f);
+                }
 
-                // Atualiza pontuação
-                gameManager.SetPontuacao(state.scoreHost, state.scoreClient);
+                // Atualiza pontuação SOMENTE se gameManager existe
+                if (gameManager != null)
+                {
+                    gameManager.SetPontuacao(state.scoreHost, state.scoreClient);
+                }
+                else
+                {
+                    // não quebra — apenas loga (apenas no primeiro frame para não spam)
+                    Debug.LogWarning("NetworkManagerPong: tentou SetPontuacao mas gameManager == null");
+                }
             }
         }
 
-        // === LÓGICA DE JOGO E ENVIO ===
         if (mode == Mode.Host)
         {
-            // Host movimenta paddle dele
             float v = Input.GetAxis("Vertical");
-            Vector3 pHost = paddleHost.position;
-            pHost.y += v * Time.deltaTime * 7f;
-            paddleHost.position = pHost;
+            if (paddleHost != null)
+            {
+                Vector3 pHost = paddleHost.position;
+                pHost.y += v * Time.deltaTime * 7f;
+                paddleHost.position = pHost;
+            }
 
-            // Atualiza física da bola
+            // Atualiza física da bola (usa valores locais)
             ballPos += ballVel * Time.deltaTime;
 
-            // Limites da tela (ajuste conforme cena)
             if (ballPos.y > 4.5f || ballPos.y < -4.5f) ballVel.y = -ballVel.y;
 
-            // Colisões simples com paddles
-            if (Mathf.Abs(ballPos.x - paddleHost.position.x) < 0.5f &&
-                Mathf.Abs(ballPos.y - paddleHost.position.y) < 1f && ballVel.x < 0)
-                ballVel.x = -ballVel.x;
+            if (paddleHost != null && paddleClient != null)
+            {
+                if (Mathf.Abs(ballPos.x - paddleHost.position.x) < 0.5f &&
+                    Mathf.Abs(ballPos.y - paddleHost.position.y) < 1f && ballVel.x < 0)
+                    ballVel.x = -ballVel.x;
 
-            if (Mathf.Abs(ballPos.x - paddleClient.position.x) < 0.5f &&
-                Mathf.Abs(ballPos.y - paddleClient.position.y) < 1f && ballVel.x > 0)
-                ballVel.x = -ballVel.x;
+                if (Mathf.Abs(ballPos.x - paddleClient.position.x) < 0.5f &&
+                    Mathf.Abs(ballPos.y - paddleClient.position.y) < 1f && ballVel.x > 0)
+                    ballVel.x = -ballVel.x;
+            }
 
-            // Gols
+            // Gols — chama o gameManager apenas se não for nulo
             if (ballPos.x < -9f)
             {
-                gameManager.AumentarPontuacaoDoJogador2();
+                if (gameManager != null) gameManager.AumentarPontuacaoDoJogador2();
                 ResetBall(1);
             }
             else if (ballPos.x > 9f)
             {
-                gameManager.AumentarPontuacaoDoJogador1();
+                if (gameManager != null) gameManager.AumentarPontuacaoDoJogador1();
                 ResetBall(-1);
             }
 
-            // Atualiza posição da bola visualmente
-            ball.position = new Vector3(ballPos.x, ballPos.y, 0);
+            if (ball != null)
+                ball.position = new Vector3(ballPos.x, ballPos.y, 0);
 
-            // Envia estado para cliente
             if (lastClient != null && Time.time - lastSend > sendInterval)
             {
                 var state = new StateMsg
                 {
-                    hostPaddleY = paddleHost.position.y,
-                    clientPaddleY = paddleClient.position.y,
+                    hostPaddleY = paddleHost != null ? paddleHost.position.y : 0f,
+                    clientPaddleY = paddleClient != null ? paddleClient.position.y : 0f,
                     ballX = ballPos.x,
                     ballY = ballPos.y,
-                    scoreHost = gameManager.pontuacaoDoJogador1,
-                    scoreClient = gameManager.pontuacaoDoJogador2
+                    scoreHost = gameManager != null ? gameManager.pontuacaoDoJogador1 : 0,
+                    scoreClient = gameManager != null ? gameManager.pontuacaoDoJogador2 : 0
                 };
 
                 string json = JsonUtility.ToJson(state);
@@ -189,16 +210,17 @@ public class NetworkManagerPong : MonoBehaviour
         }
         else
         {
-            // Cliente movimenta paddle dele
             float v = Input.GetAxis("Vertical");
-            Vector3 pClient = paddleClient.position;
-            pClient.y += v * Time.deltaTime * 7f;
-            paddleClient.position = pClient;
+            if (paddleClient != null)
+            {
+                Vector3 pClient = paddleClient.position;
+                pClient.y += v * Time.deltaTime * 7f;
+                paddleClient.position = pClient;
+            }
 
-            // Envia posição do paddle para o host
             if (Time.time - lastSend > sendInterval)
             {
-                var input = new InputMsg { paddleY = paddleClient.position.y };
+                var input = new InputMsg { paddleY = paddleClient != null ? paddleClient.position.y : 0f };
                 string json = JsonUtility.ToJson(input);
                 byte[] data = Encoding.UTF8.GetBytes(json);
                 udp.SendAsync(data, data.Length, remoteEP);

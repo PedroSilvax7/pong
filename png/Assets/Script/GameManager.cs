@@ -1,29 +1,29 @@
 using UnityEngine;
-using TMPro; // TMP
+using UnityEngine.UI;
+using TMPro;
 
 public class GameManager : MonoBehaviour
 {
     public int pontuacaoDoJogador1;
     public int pontuacaoDoJogador2;
 
-    public TextMeshProUGUI textoDePontuacao; // continua público se quiser arrastar, mas não obrigatório
+    // Você pode arrastar um destes no Inspector, ou nenhum — o script tenta achar automaticamente.
+    public TextMeshProUGUI textoTMP;
+    public Text textoLegacy;
 
     void Awake()
     {
-        // Tenta achar o TMP automaticamente na cena
-        if (textoDePontuacao == null)
-        {
-            textoDePontuacao = FindObjectOfType<TextMeshProUGUI>();
-            if (textoDePontuacao == null)
-            {
-                Debug.LogError("Não foi encontrado nenhum TextMeshProUGUI na cena!");
-            }
-        }
+        // Se nada foi arrastado, tenta achar automaticamente na cena (prioriza TMP)
+        if (textoTMP == null)
+            textoTMP = FindObjectOfType<TextMeshProUGUI>();
+
+        if (textoTMP == null && textoLegacy == null)
+            textoLegacy = FindObjectOfType<Text>();
     }
 
     void Start()
     {
-        AtualizarTextoDePontuacao(); // mostra 0x0 no início
+        AtualizarTextoDePontuacao();
     }
 
     public void SetPontuacao(int p1, int p2)
@@ -47,10 +47,22 @@ public class GameManager : MonoBehaviour
 
     public void AtualizarTextoDePontuacao()
     {
-        if (textoDePontuacao != null)
+        string s = $"{pontuacaoDoJogador1} x {pontuacaoDoJogador2}";
+
+        if (textoTMP != null)
         {
-            textoDePontuacao.text = $"{pontuacaoDoJogador1} x {pontuacaoDoJogador2}";
+            textoTMP.text = s;
+            return;
         }
+
+        if (textoLegacy != null)
+        {
+            textoLegacy.text = s;
+            return;
+        }
+
+        // Nenhum componente de UI disponível — não quebra, apenas loga
+        Debug.LogWarning("GameManager: nenhum TextMeshProUGUI ou Text encontrado para mostrar a pontuação. Mensagem: " + s);
     }
 }
 

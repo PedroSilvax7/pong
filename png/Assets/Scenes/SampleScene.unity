@@ -1187,7 +1187,8 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   pontuacaoDoJogador1: 5
   pontuacaoDoJogador2: 0
-  textoDePontuacao: {fileID: 0}
+  textoTMP: {fileID: 0}
+  textoLegacy: {fileID: 1488842760}
 --- !u!4 &1219550248
 Transform:
   m_ObjectHideFlags: 0
