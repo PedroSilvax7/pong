@@ -34,6 +34,8 @@ public class NetworkManagerPong : MonoBehaviour
     private Vector2 ballPos;
     private Vector2 ballVel;
 
+    private bool rodando = false;
+
     [Serializable]
     public struct InputMsg { public float paddleY; }
 
@@ -50,13 +52,15 @@ public class NetworkManagerPong : MonoBehaviour
 
     void Start()
     {
-        // Garante que temos uma referência válida para GameManager
+        rodando = true;
+
+        // Garante referência válida para GameManager
         if (gameManager == null)
         {
             gameManager = FindObjectOfType<GameManager>();
             if (gameManager == null)
             {
-                Debug.LogWarning("NetworkManagerPong: GameManager não encontrado na cena. Chamadas relacionadas à pontuação serão ignoradas até corrigir.");
+                Debug.LogWarning("NetworkManagerPong: GameManager não encontrado. Pontuação será ignorada.");
             }
         }
 
@@ -80,13 +84,18 @@ public class NetworkManagerPong : MonoBehaviour
 
     async Task ReceiveLoop()
     {
-        while (true)
+        while (rodando)
         {
             try
             {
                 var result = await udp.ReceiveAsync();
                 string msg = Encoding.UTF8.GetString(result.Buffer);
                 recvQueue.Enqueue((msg, result.RemoteEndPoint));
+            }
+            catch (ObjectDisposedException)
+            {
+                // UDP foi fechado, sai do loop sem logar erro
+                break;
             }
             catch (Exception e)
             {
@@ -97,6 +106,7 @@ public class NetworkManagerPong : MonoBehaviour
 
     void Update()
     {
+        // === PROCESSA MENSAGENS ===
         while (recvQueue.TryDequeue(out var entry))
         {
             string msg = entry.Item1;
@@ -136,19 +146,14 @@ public class NetworkManagerPong : MonoBehaviour
                     ball.position = Vector3.Lerp(ball.position, new Vector3(state.ballX, state.ballY, 0), 0.8f);
                 }
 
-                // Atualiza pontuação SOMENTE se gameManager existe
                 if (gameManager != null)
                 {
                     gameManager.SetPontuacao(state.scoreHost, state.scoreClient);
                 }
-                else
-                {
-                    // não quebra — apenas loga (apenas no primeiro frame para não spam)
-                    Debug.LogWarning("NetworkManagerPong: tentou SetPontuacao mas gameManager == null");
-                }
             }
         }
 
+        // === LÓGICA HOST/CLIENT ===
         if (mode == Mode.Host)
         {
             float v = Input.GetAxis("Vertical");
@@ -159,9 +164,7 @@ public class NetworkManagerPong : MonoBehaviour
                 paddleHost.position = pHost;
             }
 
-            // Atualiza física da bola (usa valores locais)
             ballPos += ballVel * Time.deltaTime;
-
             if (ballPos.y > 4.5f || ballPos.y < -4.5f) ballVel.y = -ballVel.y;
 
             if (paddleHost != null && paddleClient != null)
@@ -175,7 +178,6 @@ public class NetworkManagerPong : MonoBehaviour
                     ballVel.x = -ballVel.x;
             }
 
-            // Gols — chama o gameManager apenas se não for nulo
             if (ballPos.x < -9f)
             {
                 if (gameManager != null) gameManager.AumentarPontuacaoDoJogador2();
@@ -235,8 +237,17 @@ public class NetworkManagerPong : MonoBehaviour
         ballVel = new Vector2(velocidadeBola * dir, UnityEngine.Random.Range(-velocidadeBola, velocidadeBola));
     }
 
+    void OnDestroy()
+    {
+        rodando = false;
+        udp?.Close();
+    }
+
     void OnApplicationQuit()
     {
-        try { udp?.Close(); } catch { }
+        rodando = false;
+        udp?.Close();
     }
 }
+
+
