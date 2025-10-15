@@ -1185,7 +1185,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 059c9c3c603c7834ea59e9adf7735cea, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  pontuacaoDoJogador1: 5
+  pontuacaoDoJogador1: 0
   pontuacaoDoJogador2: 0
   textoTMP: {fileID: 0}
   textoLegacy: {fileID: 1488842760}
