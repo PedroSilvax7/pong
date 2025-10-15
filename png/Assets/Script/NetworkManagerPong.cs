@@ -90,27 +90,28 @@ public class NetworkManagerPong : MonoBehaviour
                 var result = await udp.ReceiveAsync();
                 string msg = Encoding.UTF8.GetString(result.Buffer);
                 recvQueue.Enqueue((msg, result.RemoteEndPoint));
-
-                if (mode == Mode.Host)
-                    Debug.Log($"Host recebeu input do cliente {result.RemoteEndPoint}");
-                else
-                    Debug.Log($"Cliente recebeu estado do Host");
             }
             catch (ObjectDisposedException)
             {
-                break; // UDP fechado
+                // UDP fechado, encerra loop normalmente
+                break;
+            }
+            catch (SocketException e) when (e.SocketErrorCode == SocketError.ConnectionReset)
+            {
+                // Pacote UDP descartado pelo host remoto — ignora
+                Debug.LogWarning("ReceiveLoop: conexão resetada pelo host remoto (UDP). Ignorando.");
             }
             catch (Exception e)
             {
-                Debug.LogWarning("Erro ReceiveLoop: " + e.Message);
-                await Task.Delay(500); // evita spam
+                // Outros erros inesperados — apenas log
+                Debug.LogWarning("ReceiveLoop: " + e.Message);
+                await Task.Delay(500);
             }
         }
     }
 
     void Update()
     {
-        // Processa mensagens
         while (recvQueue.TryDequeue(out var entry))
         {
             string msg = entry.Item1;
@@ -153,7 +154,6 @@ public class NetworkManagerPong : MonoBehaviour
             }
         }
 
-        // Lógica Host ou Cliente
         if (mode == Mode.Host)
             UpdateHost();
         else
@@ -231,7 +231,7 @@ public class NetworkManagerPong : MonoBehaviour
         {
             var input = new InputMsg { paddleY = paddleClient != null ? paddleClient.position.y : 0f };
             string json = JsonUtility.ToJson(input);
-            byte[] data = Encoding.UTF8.GetBytes(json);
+            byte[] data = Encoding.UTF8.GetBytes(json); // ✅ Corrigido aqui
             try
             {
                 udp.SendAsync(data, data.Length, remoteEP);
@@ -262,6 +262,7 @@ public class NetworkManagerPong : MonoBehaviour
         udp?.Close();
     }
 }
+
 
 
 
